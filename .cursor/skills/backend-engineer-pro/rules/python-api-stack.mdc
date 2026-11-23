@@ -1,0 +1,291 @@
+---
+description: Version-aware Python application stack standards for FastAPI, Pydantic, AnyIO, HTTPX, pytest and Uvicorn.
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python API Stack — Version-Aware Development Rules
+
+## 1. Application Stack
+
+This project uses:
+
+| Dependency | Allowed version | Responsibility |
+|---|---|---|
+| FastAPI | `>=0.115,<0.116` | API framework, routing, dependency injection |
+| Pydantic | `>=2,<3` | Data validation, serialization and schemas |
+| AnyIO | `>=4,<4.15` | Asynchronous concurrency and interoperability |
+| HTTPX | `>=0.27,<0.29` | HTTP client and API testing transport |
+| pytest | `>=8,<9` | Automated testing |
+| Uvicorn | `>=0.30,<0.36` | ASGI application server |
+
+Additional application technology:
+- SQLite using Python's standard-library `sqlite3`.
+- Starlette as FastAPI's underlying ASGI toolkit.
+- Python type hints throughout the application.
+
+**Version policy**
+- Treat the dependency ranges as compatibility constraints, not exact version pins.
+- Do not assume APIs from newer major or minor releases are available.
+- Check the installed versions and project configuration before using version-specific functionality.
+- Do not upgrade dependencies or change version constraints without explicit approval.
+- Preserve compatibility with the complete declared version range where practical.
+
+## 2. FastAPI — API Framework
+
+**Version:** `>=0.115,<0.116`
+
+Responsibilities:
+- Define HTTP routes and methods.
+- Handle request and response processing.
+- Provide dependency injection.
+- Integrate authentication and validation.
+- Generate OpenAPI documentation.
+- Manage application lifecycle.
+
+Best practices:
+- Keep route handlers small and focused.
+- Use `Annotated` with `Depends()` for dependencies where appropriate.
+- Use Pydantic models for request and response contracts.
+- Use `HTTPException` for expected HTTP errors.
+- Keep business logic outside route handlers.
+- Use application lifespan management for startup and shutdown resources.
+- Keep authentication and authorization separate from business logic.
+- Return appropriate HTTP status codes.
+- Avoid accessing the database directly from route handlers.
+
+Async considerations:
+- Use `async def` when the handler performs genuinely asynchronous I/O.
+- Use ordinary `def` for blocking operations when appropriate.
+- Never call blocking database or file operations directly inside an asynchronous handler without considering event-loop blocking.
+- Do not introduce async complexity where synchronous code is sufficient.
+
+## 3. Pydantic — Validation and Serialization
+
+**Version:** `>=2,<3`
+
+Use Pydantic v2 conventions.
+
+Preferred APIs:
+- `BaseModel`
+- `Field`
+- `ConfigDict`
+- `field_validator`
+- `model_validator`
+- `model_dump()`
+- `model_validate()`
+- `model_dump_json()`
+
+Best practices:
+- Define explicit request and response schemas.
+- Use type hints and constraints to validate input.
+- Use `Field()` for validation constraints and useful descriptions.
+- Use `model_config = ConfigDict(...)` for model configuration.
+- Use `field_validator` for field-level validation.
+- Use `model_validator` for validation involving multiple fields.
+- Use optional types explicitly, such as `str | None`.
+- Keep validation rules close to the relevant schema.
+- Do not place database queries or unrelated business logic inside validators.
+- Avoid mutable default values; use `default_factory` for mutable fields where needed.
+
+Avoid Pydantic v1 APIs:
+- `@validator`
+- `@root_validator`
+- `class Config`
+- `.dict()`
+- `.json()`
+- `.parse_obj()`
+
+Prefer the corresponding Pydantic v2 APIs instead.
+
+## 4. AnyIO — Asynchronous Concurrency
+
+**Version:** `>=4,<4.15`
+
+AnyIO provides asynchronous concurrency support and is used within the FastAPI/Starlette ecosystem.
+
+Best practices:
+- Prefer simple synchronous code when asynchronous concurrency is unnecessary.
+- Use structured concurrency when multiple related asynchronous tasks are required.
+- Use task groups to manage related concurrent tasks.
+- Ensure spawned tasks are completed or cancelled cleanly.
+- Handle cancellation correctly.
+- Use timeouts for operations that could otherwise wait indefinitely.
+- Do not swallow cancellation exceptions.
+- Ensure cleanup happens when tasks are cancelled.
+- Avoid manually managing event loops in application code.
+
+Version considerations:
+- Follow AnyIO 4 cancellation and exception-group behaviour.
+- Do not rely on APIs introduced in AnyIO 4.15 or later.
+- Avoid mixing multiple asynchronous test runners without a clear reason.
+
+## 5. HTTPX — HTTP Client and API Testing
+
+**Version:** `>=0.27,<0.29`
+
+Responsibilities:
+- Make HTTP requests to external services.
+- Support FastAPI's Starlette-based `TestClient`.
+- Provide asynchronous HTTP testing through `AsyncClient`.
+
+Best practices:
+- Use `httpx.Client` for synchronous HTTP operations.
+- Use `httpx.AsyncClient` for asynchronous HTTP operations.
+- Set explicit timeouts for external requests.
+- Reuse clients when appropriate instead of repeatedly creating them.
+- Close clients using context managers.
+- Test status codes, response bodies and headers.
+- Avoid making real external network calls in unit tests.
+
+Testing considerations:
+- Prefer `fastapi.testclient.TestClient` for straightforward synchronous API tests.
+- Use `httpx.ASGITransport` with `AsyncClient` when asynchronous ASGI testing is required.
+- Manage application lifespan explicitly when using ASGI transport.
+- Keep test transport configuration compatible with HTTPX 0.27 and 0.28.
+
+HTTPX 0.28 compatibility:
+- Do not use the removed `app=` argument.
+- Do not use the removed `proxies=` argument.
+- Avoid deprecated string-based `verify` and `cert` configurations.
+- Use supported transport and SSL configuration APIs.
+
+## 6. pytest — Automated Testing
+
+**Version:** `>=8,<9`
+
+Best practices:
+- Name test files `test_*.py`.
+- Name test functions `test_*`.
+- Use fixtures for reusable setup and teardown.
+- Use `@pytest.mark.parametrize` for multiple input cases.
+- Use `tmp_path` for temporary files and test databases.
+- Use `monkeypatch` for controlled replacement of dependencies and environment values.
+- Keep tests independent and deterministic.
+- Assert observable behaviour rather than implementation details.
+- Test both successful and unsuccessful scenarios.
+- Do not weaken existing tests to make an implementation pass.
+
+FastAPI testing:
+- Use `TestClient` for normal synchronous endpoint tests.
+- Test authentication, authorization and invalid requests.
+- Verify response status codes and JSON structures.
+- Use dependency overrides when replacing application dependencies.
+- Reset dependency overrides after tests.
+- Use a separate temporary SQLite database for tests.
+- Never let tests modify the supplied development database.
+
+Async testing:
+- Use `pytest.mark.anyio` for asynchronous tests when required.
+- Use the AnyIO pytest plugin for asynchronous fixtures.
+- Avoid configuring competing async test plugins in conflicting automatic modes.
+- Keep fixture scopes compatible with the async backend lifecycle.
+
+## 7. Uvicorn — ASGI Server
+
+**Version:** `>=0.30,<0.36`
+
+Responsibilities:
+- Run the FastAPI application as an ASGI server.
+- Handle incoming HTTP connections.
+- Manage application startup and shutdown through the ASGI lifecycle.
+
+Development:
+- Use reload mode for local development only.
+- Keep the application import path explicit.
+- Example:
+
+```bash
+uvicorn station_health.app:app --reload
+```
+
+Production considerations:
+- Do not enable reload in production.
+- Configure host, port and logging through deployment configuration.
+- Consider worker processes only when deployment requirements justify them.
+- Do not assume in-memory state is shared between workers.
+- Ensure database connections and other resources are managed safely.
+- Do not start Uvicorn programmatically when the application is already managed by an ASGI server.
+
+## 8. SQLite — Persistence
+
+The project uses Python's built-in `sqlite3` module.
+
+Best practices:
+- Keep SQL and persistence operations in the repository layer.
+- Use parameterised SQL queries.
+- Never build SQL statements by concatenating untrusted input.
+- Use explicit transaction boundaries.
+- Close connections and cursors reliably.
+- Handle database exceptions appropriately.
+- Keep database schema and seed data consistent.
+- Use isolated temporary databases in tests.
+- Avoid sharing SQLite connections across threads unless the connection configuration and access model explicitly support it.
+- Consider SQLite's write-locking behaviour when introducing concurrent writes.
+- Do not introduce an ORM or another database library without approval.
+
+Async considerations:
+- `sqlite3` is synchronous.
+- Do not assume that declaring a route `async def` makes SQLite operations non-blocking.
+- Preserve the existing database access pattern unless a requirement justifies changing it.
+
+## 9. Architecture and Separation of Concerns
+
+Follow the existing project architecture:
+
+- `app.py`: API routes and HTTP handling.
+- `auth.py`: Authentication and operator identification.
+- `db.py`: Database connection management.
+- `middleware.py`: HTTP middleware.
+- `repository.py`: SQL queries and persistence.
+- `schemas.py`: Pydantic request and response models.
+- `service.py`: Business logic orchestration.
+- `starvation.py`: Starvation calculations and domain rules.
+- `supplied.py`: Existing supplied functionality.
+- `tests/`: Automated tests.
+
+Rules:
+- Keep HTTP concerns out of the repository.
+- Keep SQL out of the service layer.
+- Keep business rules out of route handlers.
+- Avoid circular imports.
+- Avoid unnecessary abstractions and duplicated logic.
+- Preserve existing interfaces unless a requirement requires a change.
+
+## 10. Application-Specific Correctness
+
+When changing existing functionality, preserve and test:
+
+- Authentication and operator isolation.
+- UTC date and time handling.
+- Inclusive start and exclusive end time boundaries.
+- Correct empty-reading thresholds.
+- Existing API response contracts.
+- Database integrity and transaction behaviour.
+- Seed data and supplied functionality.
+
+Do not change expected behaviour merely to simplify implementation.
+
+## 11. Development Workflow
+
+Before making changes:
+
+1. Inspect the relevant implementation and tests.
+2. Identify which dependency or layer is involved.
+3. Check compatibility with the declared dependency versions.
+4. Trace affected callers and data flow.
+5. Propose the smallest appropriate change.
+6. Identify tests needed to verify the change.
+
+After approval:
+
+1. Implement only the approved changes.
+2. Add or update relevant tests.
+3. Run the targeted tests first.
+4. Run the full test suite when appropriate.
+5. Review the final diff for unrelated changes.
+6. Report test results honestly.
+
+Do not upgrade dependencies, install packages, restructure the application or modify unrelated files without approval.
+
+**Golden rule:** Follow the existing architecture, use APIs compatible with the declared versions, make the smallest safe change, and prove it with tests.

@@ -55,7 +55,7 @@ def check_station_starvation(
     operator_id: int,
     station_id: int,
     requested_date: date_type,
-) -> StarvationResult:
+) -> StarvationResponse:
 
     if not repository.station_belongs_to_operator(connection, station_id, operator_id):
         raise StationNotFound

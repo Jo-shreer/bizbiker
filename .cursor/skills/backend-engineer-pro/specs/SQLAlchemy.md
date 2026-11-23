@@ -1,0 +1,23 @@
+## 2. Agreed Requirements
+- PostgreSQL with SQLAlchemy 2.0.
+- Async engine, asyncpg, and AsyncSession.
+- Shared engine and bounded connection pool.
+- One session per request using FastAPI yield.
+- Explicit transactions using async with session.begin().
+- READ COMMITTED isolation.
+- Alembic migrations as a separate deployment step.
+- PostgreSQL UUID primary keys and server-generated timestamps.
+- Connection health checks using pool_pre_ping=True.
+- Graceful shutdown using await engine.dispose().
+- Slow-query monitoring (500 ms default).
+- Limited retries for transient connection failures.
+- Database constraints and query-pattern-based indexes.
+- Explicit relationship loading using selectinload() and joinedload().
+- Optimistic concurrency control selectively.
+- Database-level pagination, maximum 20 records.
+- Separate PostgreSQL test database.
+- Structured database error logging; no full SQL logging.
+- No soft deletes.
+- No new /ready endpoint.
+- Preserve existing application layers and architecture.
+- No automatic table creation or migrations at startup.
